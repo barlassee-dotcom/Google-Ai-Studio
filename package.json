@@ -1,0 +1,17 @@
+{
+  "name": "primus-coating-cashflow",
+  "version": "4.2.3",
+  "private": true,
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "firebase": "10.13.1",
+    "@google/genai": "^1.33.0",
+    "recharts": "^2.15.0",
+    "xlsx": "^0.18.5"
+  },
+  "scripts": {
+    "start": "npx servor . index.html 8080 --browse",
+    "build": "mkdir -p dist && cp -rv index.html index.tsx App.tsx types.ts metadata.json components services utils dist/"
+  }
+}
