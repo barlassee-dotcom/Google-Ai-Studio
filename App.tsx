@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Asset, Check, RecurringRule, Transaction, CustomTab, ProjectionType, Currency } from './types';
-import { calculateFlow } from './utils/calculations';
+import { calculateFlow, toLocalYMD, formatMoney } from './utils/calculations';
 import { syncPath, updatePath } from './services/firebaseService';
 
 // Sub-components
@@ -15,7 +16,6 @@ import AIChatAssistant from './components/AIChatAssistant';
 import AIAnalysisTab from './components/AIAnalysisTab';
 
 const App: React.FC = () => {
-  // Firestore Paths
   const FB_PATHS = {
     ASSETS: 'cashflow/assets',
     CHECKS: 'cashflow/checks',
@@ -24,12 +24,14 @@ const App: React.FC = () => {
     TABS: 'cashflow/custom_tabs'
   };
 
-  // State
   const [activeTab, setActiveTab] = useState('flow');
   const [eurRate, setEurRate] = useState(36.50);
+  const [usdRate, setUsdRate] = useState(34.20);
   const [viewCurrency, setViewCurrency] = useState<Currency>('TL');
   const [projectionType, setProjectionType] = useState<ProjectionType>('daily');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const notificationRef = useRef<HTMLDivElement>(null);
   
   const [assets, setAssets] = useState<Asset[]>([]);
   const [checks, setChecks] = useState<Check[]>([]);
@@ -37,7 +39,6 @@ const App: React.FC = () => {
   const [recurringRules, setRecurringRules] = useState<RecurringRule[]>([]);
   const [customTabs, setCustomTabs] = useState<CustomTab[]>([]);
 
-  // Live Sync from Firestore
   useEffect(() => {
     const unsubAssets = syncPath(FB_PATHS.ASSETS, (val) => setAssets(val || []));
     const unsubChecks = syncPath(FB_PATHS.CHECKS, (val) => setChecks(val || []));
@@ -45,18 +46,21 @@ const App: React.FC = () => {
     const unsubRules = syncPath(FB_PATHS.RULES, (val) => setRecurringRules(val || []));
     const unsubTabs = syncPath(FB_PATHS.TABS, (val) => setCustomTabs(val || []));
 
-    fetchEurRate();
+    fetchRates();
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setIsNotificationOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
 
     return () => {
-      unsubAssets();
-      unsubChecks();
-      unsubManual();
-      unsubRules();
-      unsubTabs();
+      unsubAssets(); unsubChecks(); unsubManual(); unsubRules(); unsubTabs();
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
-  // Update Wrappers for Firestore
   const handleSetAssets = (val: any) => {
     const next = typeof val === 'function' ? val(assets) : val;
     setAssets(next);
@@ -87,20 +91,41 @@ const App: React.FC = () => {
     updatePath(FB_PATHS.TABS, next);
   };
 
-  const fetchEurRate = async () => {
+  const fetchRates = async () => {
     try {
-      const response = await fetch('https://api.frankfurter.app/latest?from=EUR&to=TRY');
-      if (response.ok) {
-        const data = await response.json();
+      const [resEur, resUsd] = await Promise.all([
+        fetch('https://api.frankfurter.app/latest?from=EUR&to=TRY'),
+        fetch('https://api.frankfurter.app/latest?from=USD&to=TRY')
+      ]);
+      if (resEur.ok) {
+        const data = await resEur.json();
         setEurRate(data.rates.TRY);
+      }
+      if (resUsd.ok) {
+        const data = await resUsd.json();
+        setUsdRate(data.rates.TRY);
       }
     } catch (e) { console.error("Rate fetch failed", e); }
   };
 
   const periods = useMemo(() => 
-    calculateFlow(projectionType, assets, checks, manualTransactions, recurringRules, eurRate, viewCurrency),
-    [projectionType, assets, checks, manualTransactions, recurringRules, eurRate, viewCurrency]
+    calculateFlow(projectionType, assets, checks, manualTransactions, recurringRules, eurRate, usdRate, viewCurrency),
+    [projectionType, assets, checks, manualTransactions, recurringRules, eurRate, usdRate, viewCurrency]
   );
+
+  // Bildirim Sistemi: 7 gün içinde vadesi gelen çekleri bul
+  const upcomingChecks = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const limit = new Date(today);
+    limit.setDate(today.getDate() + 7);
+    const limitStr = toLocalYMD(limit);
+    const todayStr = toLocalYMD(today);
+
+    return checks.filter(c => {
+      return c.effectiveDateStr >= todayStr && c.effectiveDateStr <= limitStr;
+    }).sort((a, b) => a.effectiveDateStr.localeCompare(b.effectiveDateStr));
+  }, [checks]);
 
   const handleExport = () => {
     const data = { assets, checks, manualTransactions, recurringRules, customTabs };
@@ -127,7 +152,7 @@ const App: React.FC = () => {
           if (data.manualTransactions) handleSetManual(data.manualTransactions);
           if (data.recurringRules) handleSetRules(data.recurringRules);
           if (data.customTabs) handleSetTabs(data.customTabs);
-          alert("Veriler Firebase Firestore'a aktarıldı.");
+          alert("Veriler aktarıldı.");
         } catch (err) { alert("Geçersiz yedek dosyası."); }
       };
       reader.readAsText(file);
@@ -152,7 +177,7 @@ const App: React.FC = () => {
       />
 
       <main className="flex-1 p-4 lg:p-8 overflow-y-auto relative w-full">
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-8">
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setIsMobileMenuOpen(true)}
@@ -160,46 +185,85 @@ const App: React.FC = () => {
             >
               <i className="fa-solid fa-bars-staggered text-lg"></i>
             </button>
-
             <div>
               <div className="flex items-center gap-3 mb-1">
                 <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">
                   Primus Coating <span className="text-blue-600 underline decoration-blue-200 underline-offset-4 font-black">CASHFLOW</span>
                 </h1>
-                <div className="hidden sm:flex items-center gap-1.5 bg-indigo-50 text-indigo-600 px-2 py-1 rounded-full border border-indigo-100">
-                  <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></span>
-                  <span className="text-[10px] font-black uppercase tracking-widest">Firestore Sync</span>
-                </div>
               </div>
-              <p className="text-slate-500 text-[11px] md:text-sm font-medium">Kurumsal Bulut Projeksiyon Sistemi v4.2</p>
+              <p className="text-slate-500 text-[11px] md:text-sm font-medium">Kurumsal Finans Sistemi v4.5</p>
             </div>
           </div>
           
-          <div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-xl shadow-sm border border-slate-100 self-start md:self-auto">
+          <div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-xl shadow-sm border border-slate-100 self-start xl:self-auto">
+            {/* Bildirim Zil Paneli */}
+            <div className="relative" ref={notificationRef}>
+              <button 
+                onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all relative ${upcomingChecks.length > 0 ? 'bg-rose-50 text-rose-600 animate-pulse' : 'bg-slate-50 text-slate-400'}`}
+              >
+                <i className="fa-solid fa-bell"></i>
+                {upcomingChecks.length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-rose-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white">
+                    {upcomingChecks.length}
+                  </span>
+                )}
+              </button>
+
+              {isNotificationOpen && (
+                <div className="absolute top-full mt-3 right-0 w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="p-4 border-b flex items-center justify-between bg-slate-50/50 rounded-t-2xl">
+                    <span className="text-sm font-bold text-slate-800">Bildirimler</span>
+                    <span className="text-[10px] font-black text-rose-600 uppercase bg-rose-50 px-2 py-0.5 rounded">Yaklaşan Çekler</span>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto custom-scrollbar">
+                    {upcomingChecks.length > 0 ? (
+                      upcomingChecks.map(check => (
+                        <div key={check.id} className="p-4 border-b hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => { setActiveTab('checks'); setIsNotificationOpen(false); }}>
+                          <div className="flex justify-between items-start mb-1">
+                            <span className="text-xs font-bold text-slate-700 truncate pr-2">{check.desc}</span>
+                            <span className="text-xs font-black text-blue-600 whitespace-nowrap">{formatMoney(check.amount)}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                             <i className="fa-solid fa-calendar-day text-[10px] text-slate-400"></i>
+                             <span className="text-[10px] font-bold text-slate-500 uppercase">Vade: {check.effectiveDateStr}</span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-8 text-center text-slate-400">
+                        <i className="fa-solid fa-check-circle text-2xl mb-2 opacity-20"></i>
+                        <p className="text-xs font-medium italic">7 gün içinde vadesi gelen çek bulunmuyor.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="h-6 w-px bg-slate-100 hidden md:block mx-1"></div>
+
             <div className="flex items-center gap-2 px-3 border-r border-slate-100 pr-4">
               <span className="text-[10px] font-black text-slate-400 uppercase">1 EUR</span>
-              <input 
-                type="number" 
-                value={eurRate} 
-                onChange={(e) => setEurRate(Number(e.target.value))}
-                className="w-16 text-sm font-bold bg-transparent outline-none border-b border-transparent focus:border-blue-500 transition-all"
-              />
+              <input type="number" value={eurRate} onChange={(e) => setEurRate(Number(e.target.value))} className="w-16 text-sm font-bold bg-transparent outline-none border-b border-transparent focus:border-blue-500" />
+              <span className="text-xs font-bold text-slate-500">TL</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 border-r border-slate-100 pr-4">
+              <span className="text-[10px] font-black text-slate-400 uppercase">1 USD</span>
+              <input type="number" value={usdRate} onChange={(e) => setUsdRate(Number(e.target.value))} className="w-16 text-sm font-bold bg-transparent outline-none border-b border-transparent focus:border-blue-500" />
               <span className="text-xs font-bold text-slate-500">TL</span>
             </div>
             
             <div className="flex bg-slate-50 p-1 rounded-lg">
-              <button 
-                onClick={() => setViewCurrency('TL')}
-                className={`px-4 py-1.5 rounded-md text-[11px] font-black transition-all ${viewCurrency === 'TL' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
-              >
-                TL
-              </button>
-              <button 
-                onClick={() => setViewCurrency('EUR')}
-                className={`px-4 py-1.5 rounded-md text-[11px] font-black transition-all ${viewCurrency === 'EUR' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
-              >
-                EUR
-              </button>
+              {['TL', 'EUR', 'USD'].map(curr => (
+                <button 
+                  key={curr}
+                  onClick={() => setViewCurrency(curr as Currency)}
+                  className={`px-4 py-1.5 rounded-md text-[11px] font-black transition-all ${viewCurrency === curr ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  {curr}
+                </button>
+              ))}
             </div>
           </div>
         </header>
@@ -207,48 +271,23 @@ const App: React.FC = () => {
         <div className="pb-24">
           {activeTab === 'flow' && (
             <FlowDashboard 
-              periods={periods} 
-              projectionType={projectionType} 
-              setProjectionType={setProjectionType}
-              viewCurrency={viewCurrency}
-              assets={assets}
-              setAssets={handleSetAssets}
-              eurRate={eurRate}
+              periods={periods} projectionType={projectionType} setProjectionType={setProjectionType}
+              viewCurrency={viewCurrency} assets={assets} setAssets={handleSetAssets} eurRate={eurRate}
             />
           )}
-
-          {activeTab === 'ai-analysis' && (
-            <AIAnalysisTab periods={periods} viewCurrency={viewCurrency} />
-          )}
-
-          {activeTab === 'assets' && (
-            <AssetManager assets={assets} setAssets={handleSetAssets} viewCurrency={viewCurrency} eurRate={eurRate} />
-          )}
-
-          {activeTab === 'checks' && (
-            <CheckManager checks={checks} setChecks={handleSetChecks} />
-          )}
-
-          {activeTab === 'recurring' && (
-            <RecurringManager rules={recurringRules} setRules={handleSetRules} />
-          )}
-
-          {activeTab === 'manual' && (
-            <ManualManager transactions={manualTransactions} setTransactions={handleSetManual} />
-          )}
-
+          {activeTab === 'ai-analysis' && <AIAnalysisTab periods={periods} viewCurrency={viewCurrency} />}
+          {activeTab === 'assets' && <AssetManager assets={assets} setAssets={handleSetAssets} viewCurrency={viewCurrency} eurRate={eurRate} usdRate={usdRate} />}
+          {activeTab === 'checks' && <CheckManager checks={checks} setChecks={handleSetChecks} />}
+          {activeTab === 'recurring' && <RecurringManager rules={recurringRules} setRules={handleSetRules} />}
+          {activeTab === 'manual' && <ManualManager transactions={manualTransactions} setTransactions={handleSetManual} />}
           {activeTab.startsWith('cust-') && (
             <ExcelTabs 
-              tabId={activeTab} 
-              transactions={manualTransactions} 
-              setTransactions={handleSetManual} 
-              customTabs={customTabs}
-              setCustomTabs={handleSetTabs}
+              tabId={activeTab} transactions={manualTransactions} setTransactions={handleSetManual} 
+              customTabs={customTabs} setCustomTabs={handleSetTabs}
             />
           )}
         </div>
       </main>
-
       <AIChatAssistant assets={assets} periods={periods} />
     </div>
   );

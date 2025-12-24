@@ -2,11 +2,12 @@
 import { Asset, Check, RecurringRule, Transaction, FlowPeriod, ProjectionType, Currency } from '../types';
 
 export const formatMoney = (n: number, currency: Currency = 'TL') => {
+  const currencyCode = currency === 'TL' ? 'TRY' : (currency === 'EUR' ? 'EUR' : 'USD');
   return n.toLocaleString('tr-TR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
     style: 'currency',
-    currency: currency === 'TL' ? 'TRY' : 'EUR'
+    currency: currencyCode
   });
 };
 
@@ -20,8 +21,8 @@ export const toLocalYMD = (date: Date) => {
 export const getNextBusinessDay = (date: Date) => {
   const d = new Date(date);
   const day = d.getDay();
-  if (day === 6) d.setDate(d.getDate() + 2); // Cumartesi -> Pazartesi
-  else if (day === 0) d.setDate(d.getDate() + 1); // Pazar -> Pazartesi
+  if (day === 6) d.setDate(d.getDate() + 2); 
+  else if (day === 0) d.setDate(d.getDate() + 1); 
   return d;
 };
 
@@ -29,15 +30,30 @@ export const calculateBoschDate = (d: Date) => {
   let temp = new Date(d);
   temp.setHours(0, 0, 0, 0);
   const day = temp.getDay();
-  // Bosch kuralı: Perşembe/Cuma ödemeleri Perşembe, diğerleri sonraki Pazartesi
-  if (day === 4) { /* Perşembe - Olduğu gibi kalsın */ } 
-  else if (day === 5) { temp.setDate(temp.getDate() - 1); } // Cuma -> Perşembe
-  else if (day === 6) { temp.setDate(temp.getDate() + 2); } // Cumartesi -> Pazartesi
-  else if (day === 0) { temp.setDate(temp.getDate() + 1); } // Pazar -> Pazartesi
-  else if (day === 1) { /* Pazartesi - Olduğu gibi kalsın */ } 
-  else if (day === 2) { temp.setDate(temp.getDate() - 1); } // Salı -> Pazartesi
-  else if (day === 3) { temp.setDate(temp.getDate() - 2); } // Çarşamba -> Pazartesi
+  if (day === 4) { } 
+  else if (day === 5) { temp.setDate(temp.getDate() - 1); } 
+  else if (day === 6) { temp.setDate(temp.getDate() + 2); } 
+  else if (day === 0) { temp.setDate(temp.getDate() + 1); } 
+  else if (day === 1) { } 
+  else if (day === 2) { temp.setDate(temp.getDate() - 1); } 
+  else if (day === 3) { temp.setDate(temp.getDate() - 2); } 
   return temp;
+};
+
+const convertCurrency = (amount: number, from: Currency, to: Currency, eurRate: number, usdRate: number): number => {
+  if (from === to) return amount;
+  
+  // Önce TL'ye çevir
+  let tlAmount = amount;
+  if (from === 'EUR') tlAmount = amount * eurRate;
+  else if (from === 'USD') tlAmount = amount * usdRate;
+
+  // TL'den hedef birime çevir
+  if (to === 'TL') return tlAmount;
+  if (to === 'EUR') return tlAmount / eurRate;
+  if (to === 'USD') return tlAmount / usdRate;
+  
+  return tlAmount;
 };
 
 export const generateRecurringTransactions = (rules: RecurringRule[] = [], start: Date, end: Date): Transaction[] => {
@@ -47,11 +63,9 @@ export const generateRecurringTransactions = (rules: RecurringRule[] = [], start
   safeRules.forEach(rule => {
     const ruleStartDate = new Date(rule.startDate);
     ruleStartDate.setHours(0, 0, 0, 0);
-    // Tekrarlı işlemler bugünden önce başlayamaz
     const loopStart = new Date(Math.max(start.getTime(), ruleStartDate.getTime()));
     let d = new Date(loopStart);
     d.setHours(0, 0, 0, 0);
-
     const endStr = toLocalYMD(end);
 
     while (toLocalYMD(d) <= endStr) {
@@ -99,7 +113,7 @@ export const generateRecurringTransactions = (rules: RecurringRule[] = [], start
           desc: rule.desc,
           amount: rule.amount,
           type: rule.type,
-          currency: 'TL'
+          currency: rule.currency || 'TL'
         });
       }
       d.setDate(d.getDate() + 1);
@@ -115,29 +129,24 @@ export const calculateFlow = (
   manualTransactions: Transaction[] = [],
   recurringRules: RecurringRule[] = [],
   eurRate: number,
+  usdRate: number,
   viewCurrency: Currency
 ): FlowPeriod[] => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayStr = toLocalYMD(today);
-  
   const periods: FlowPeriod[] = [];
   let endDate = new Date(today);
   
-  // Projeksiyon periyotlarını oluştur
   if (projectionType === 'daily') {
     endDate.setDate(today.getDate() + 45);
     for (let i = 0; i <= 45; i++) {
       let d = new Date(today);
       d.setDate(today.getDate() + i);
       periods.push({
-        start: new Date(d),
-        end: new Date(d),
+        start: new Date(d), end: new Date(d),
         label: d.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', weekday: 'long' }),
-        incomes: 0,
-        expenses: 0,
-        balance: 0,
-        details: {}
+        incomes: 0, expenses: 0, balance: 0, details: {}
       });
     }
   } else if (projectionType === 'weekly') {
@@ -150,13 +159,9 @@ export const calculateFlow = (
       weekEnd.setDate(current.getDate() + diff);
       weekEnd.setHours(23, 59, 59, 999);
       periods.push({
-        start: new Date(current),
-        end: new Date(weekEnd),
+        start: new Date(current), end: new Date(weekEnd),
         label: `${current.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' })} - ${weekEnd.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' })}`,
-        incomes: 0,
-        expenses: 0,
-        balance: 0,
-        details: {}
+        incomes: 0, expenses: 0, balance: 0, details: {}
       });
       current = new Date(weekEnd);
       current.setDate(current.getDate() + 1);
@@ -170,13 +175,9 @@ export const calculateFlow = (
       let monthEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0);
       monthEnd.setHours(23, 59, 59, 999);
       periods.push({
-        start: new Date(current),
-        end: new Date(monthEnd),
+        start: new Date(current), end: new Date(monthEnd),
         label: current.toLocaleString('tr-TR', { month: 'long', year: 'numeric' }),
-        incomes: 0,
-        expenses: 0,
-        balance: 0,
-        details: {}
+        incomes: 0, expenses: 0, balance: 0, details: {}
       });
       current = new Date(monthEnd);
       current.setDate(current.getDate() + 1);
@@ -184,54 +185,33 @@ export const calculateFlow = (
     }
   }
 
-  // Başlangıç bakiyesi (Sadece dahil edilen varlıklar)
   let initialBalance = 0;
   (assets || []).filter(a => a.included).forEach(a => {
-    let amt = a.amount;
-    if (viewCurrency === 'TL' && a.currency === 'EUR') amt *= eurRate;
-    else if (viewCurrency === 'EUR' && a.currency === 'TL') amt /= eurRate;
-    initialBalance += amt;
+    initialBalance += convertCurrency(a.amount, a.currency, viewCurrency, eurRate, usdRate);
   });
 
-  // GEÇMİŞ VERİLERİ FİLTRELE: Sadece bugün veya daha sonrası
   const allTrans: Transaction[] = (manualTransactions || []).filter(t => t.date >= todayStr);
-  
   (checks || []).forEach(c => {
     if (c.effectiveDateStr >= todayStr) {
       allTrans.push({
-        id: c.id,
-        date: c.effectiveDateStr,
-        desc: `ÇEK: ${c.desc}`,
-        amount: c.amount,
-        type: 'income',
-        currency: 'TL'
+        id: c.id, date: c.effectiveDateStr, desc: `ÇEK: ${c.desc}`,
+        amount: c.amount, type: 'income', currency: 'TL'
       });
     }
   });
 
-  // Tekrarlı işlemler bugünden itibaren üretilir
   allTrans.push(...generateRecurringTransactions(recurringRules, today, endDate));
 
   let runningBalance = initialBalance;
-
   periods.forEach(p => {
     const pStartStr = toLocalYMD(p.start);
     const pEndStr = toLocalYMD(p.end);
-
-    const periodTrans = allTrans.filter(t => {
-      return t.date >= pStartStr && t.date <= pEndStr;
-    });
+    const periodTrans = allTrans.filter(t => t.date >= pStartStr && t.date <= pEndStr);
 
     periodTrans.forEach(t => {
-      let val = t.amount;
-      if (viewCurrency === 'TL' && t.currency === 'EUR') val *= eurRate;
-      else if (viewCurrency === 'EUR' && t.currency === 'TL') val /= eurRate;
-
-      if (t.type === 'income') {
-        p.incomes += val;
-      } else {
-        p.expenses += val;
-      }
+      const val = convertCurrency(t.amount, t.currency, viewCurrency, eurRate, usdRate);
+      if (t.type === 'income') p.incomes += val;
+      else p.expenses += val;
       p.details[t.desc] = (p.details[t.desc] || 0) + (t.type === 'income' ? val : -val);
     });
 

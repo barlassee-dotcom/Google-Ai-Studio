@@ -1,5 +1,5 @@
 
-export type Currency = 'TL' | 'EUR';
+export type Currency = 'TL' | 'EUR' | 'USD';
 
 export interface Asset {
   id: string;
@@ -26,6 +26,7 @@ export interface RecurringRule {
   startDate: string;
   amount: number;
   desc: string;
+  currency: Currency;
   freq: 'weekly' | 'monthly';
   weekDays?: number[]; // 1-7 (Mon-Sun)
   monthType?: 'fixed' | 'special';

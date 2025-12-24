@@ -1,4 +1,3 @@
-
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
 import { getFirestore, doc, setDoc, onSnapshot, Firestore } from "firebase/firestore";
 
@@ -12,33 +11,47 @@ const firebaseConfig = {
   appId: "1:457571851448:web:11510e555d43fa2041284d"
 };
 
+// Singleton pattern for Firestore instance
 let dbInstance: Firestore | null = null;
 
+/**
+ * Ensures Firebase is initialized and returns the Firestore instance.
+ * Using a function to guarantee that initialization has completed.
+ */
 const getDb = (): Firestore | null => {
   if (dbInstance) return dbInstance;
   
   try {
-    const app: FirebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    const apps = getApps();
+    const app: FirebaseApp = apps.length === 0 ? initializeApp(firebaseConfig) : getApp();
+    
+    // Attempt to get firestore instance
     dbInstance = getFirestore(app);
     return dbInstance;
   } catch (error) {
-    console.error("Firebase Initialization Error:", error);
+    console.error("Critical Firebase Initialization Error:", error);
     return null;
   }
 };
 
+/**
+ * Belirli bir döküman yolu için gerçek zamanlı senkronizasyon başlatır.
+ */
 export const syncPath = (path: string, callback: (data: any) => void) => {
   const db = getDb();
+  
   if (!db) {
-    console.error(`Cannot sync path [${path}]: Firestore not initialized.`);
-    // Bağlantı koparsa periyodik olarak yeniden deneme mekanizması
-    setTimeout(() => syncPath(path, callback), 2500);
-    return () => {};
+    console.warn(`Firestore initialization delayed for [${path}]. Retrying in 2 seconds...`);
+    const retryTimeout = setTimeout(() => syncPath(path, callback), 2000);
+    return () => clearTimeout(retryTimeout);
   }
 
   try {
     const parts = path.split('/');
-    if (parts.length < 2) return () => {};
+    if (parts.length < 2) {
+      console.error(`Invalid Firestore path: ${path}`);
+      return () => {};
+    }
     
     const [collection, documentId] = parts;
     const docRef = doc(db, collection, documentId);
@@ -58,10 +71,14 @@ export const syncPath = (path: string, callback: (data: any) => void) => {
   }
 };
 
+/**
+ * Firestore'daki bir dökümanı günceller.
+ */
 export const updatePath = async (path: string, data: any) => {
   const db = getDb();
+  
   if (!db || data === undefined) {
-    console.warn(`Cannot update path [${path}]: DB not ready or data undefined.`);
+    console.warn(`Firestore not ready for update at [${path}].`);
     return;
   }
   
@@ -81,4 +98,5 @@ export const updatePath = async (path: string, data: any) => {
   }
 };
 
-export default getDb();
+// Modül yüklendiğinde bir kez ilklendirmeyi dene
+getDb();
