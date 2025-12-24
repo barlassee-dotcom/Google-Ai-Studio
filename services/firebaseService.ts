@@ -1,3 +1,4 @@
+
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
 import { getFirestore, doc, setDoc, onSnapshot, Firestore } from "firebase/firestore";
 
@@ -30,8 +31,8 @@ export const syncPath = (path: string, callback: (data: any) => void) => {
   const db = getDb();
   if (!db) {
     console.error(`Cannot sync path [${path}]: Firestore not initialized.`);
-    // Kaybolan bağlantıyı kurtarmak için kısa bir süre sonra tekrar dene
-    setTimeout(() => syncPath(path, callback), 2000);
+    // Bağlantı koparsa periyodik olarak yeniden deneme mekanizması
+    setTimeout(() => syncPath(path, callback), 2500);
     return () => {};
   }
 

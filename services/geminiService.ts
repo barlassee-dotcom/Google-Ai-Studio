@@ -31,8 +31,11 @@ export const analyzeCashFlow = async (periods: FlowPeriod[]) => {
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
+      config: {
+        thinkingConfig: { thinkingBudget: 0 }
+      }
     });
     return { text: response.text || "Analiz üretilemedi." };
   } catch (error) {
@@ -47,7 +50,7 @@ export const fetchMarketInsights = async () => {
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
@@ -87,7 +90,7 @@ export const chatWithAssistant = async (userMessage: string, context: { assets: 
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: userMessage,
       config: {
         systemInstruction: systemPrompt

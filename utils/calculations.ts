@@ -20,8 +20,8 @@ export const toLocalYMD = (date: Date) => {
 export const getNextBusinessDay = (date: Date) => {
   const d = new Date(date);
   const day = d.getDay();
-  if (day === 6) d.setDate(d.getDate() + 2); // Saturday -> Monday
-  else if (day === 0) d.setDate(d.getDate() + 1); // Sunday -> Monday
+  if (day === 6) d.setDate(d.getDate() + 2); // Cumartesi -> Pazartesi
+  else if (day === 0) d.setDate(d.getDate() + 1); // Pazar -> Pazartesi
   return d;
 };
 
@@ -29,13 +29,14 @@ export const calculateBoschDate = (d: Date) => {
   let temp = new Date(d);
   temp.setHours(0, 0, 0, 0);
   const day = temp.getDay();
-  if (day === 4) { /* Perşembe */ } 
-  else if (day === 5) { temp.setDate(temp.getDate() - 1); } 
-  else if (day === 6) { temp.setDate(temp.getDate() + 2); } 
-  else if (day === 0) { temp.setDate(temp.getDate() + 1); } 
-  else if (day === 1) { /* Pazartesi */ } 
-  else if (day === 2) { temp.setDate(temp.getDate() - 1); } 
-  else if (day === 3) { temp.setDate(temp.getDate() - 2); } 
+  // Bosch kuralı: Perşembe/Cuma ödemeleri Perşembe, diğerleri sonraki Pazartesi
+  if (day === 4) { /* Perşembe - Olduğu gibi kalsın */ } 
+  else if (day === 5) { temp.setDate(temp.getDate() - 1); } // Cuma -> Perşembe
+  else if (day === 6) { temp.setDate(temp.getDate() + 2); } // Cumartesi -> Pazartesi
+  else if (day === 0) { temp.setDate(temp.getDate() + 1); } // Pazar -> Pazartesi
+  else if (day === 1) { /* Pazartesi - Olduğu gibi kalsın */ } 
+  else if (day === 2) { temp.setDate(temp.getDate() - 1); } // Salı -> Pazartesi
+  else if (day === 3) { temp.setDate(temp.getDate() - 2); } // Çarşamba -> Pazartesi
   return temp;
 };
 
@@ -46,6 +47,7 @@ export const generateRecurringTransactions = (rules: RecurringRule[] = [], start
   safeRules.forEach(rule => {
     const ruleStartDate = new Date(rule.startDate);
     ruleStartDate.setHours(0, 0, 0, 0);
+    // Tekrarlı işlemler bugünden önce başlayamaz
     const loopStart = new Date(Math.max(start.getTime(), ruleStartDate.getTime()));
     let d = new Date(loopStart);
     d.setHours(0, 0, 0, 0);
@@ -117,10 +119,12 @@ export const calculateFlow = (
 ): FlowPeriod[] => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const todayStr = toLocalYMD(today);
   
   const periods: FlowPeriod[] = [];
   let endDate = new Date(today);
   
+  // Projeksiyon periyotlarını oluştur
   if (projectionType === 'daily') {
     endDate.setDate(today.getDate() + 45);
     for (let i = 0; i <= 45; i++) {
@@ -180,6 +184,7 @@ export const calculateFlow = (
     }
   }
 
+  // Başlangıç bakiyesi (Sadece dahil edilen varlıklar)
   let initialBalance = 0;
   (assets || []).filter(a => a.included).forEach(a => {
     let amt = a.amount;
@@ -188,18 +193,27 @@ export const calculateFlow = (
     initialBalance += amt;
   });
 
-  const allTrans: Transaction[] = [...(manualTransactions || [])];
-  (checks || []).forEach(c => allTrans.push({
-    id: c.id,
-    date: c.effectiveDateStr,
-    desc: `ÇEK: ${c.desc}`,
-    amount: c.amount,
-    type: 'income',
-    currency: 'TL'
-  }));
+  // GEÇMİŞ VERİLERİ FİLTRELE: Sadece bugün veya daha sonrası
+  const allTrans: Transaction[] = (manualTransactions || []).filter(t => t.date >= todayStr);
+  
+  (checks || []).forEach(c => {
+    if (c.effectiveDateStr >= todayStr) {
+      allTrans.push({
+        id: c.id,
+        date: c.effectiveDateStr,
+        desc: `ÇEK: ${c.desc}`,
+        amount: c.amount,
+        type: 'income',
+        currency: 'TL'
+      });
+    }
+  });
+
+  // Tekrarlı işlemler bugünden itibaren üretilir
   allTrans.push(...generateRecurringTransactions(recurringRules, today, endDate));
 
   let runningBalance = initialBalance;
+
   periods.forEach(p => {
     const pStartStr = toLocalYMD(p.start);
     const pEndStr = toLocalYMD(p.end);
