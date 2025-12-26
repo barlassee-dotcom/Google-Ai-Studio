@@ -10,8 +10,11 @@
     "recharts": "^2.15.0",
     "xlsx": "^0.18.5"
   },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  },
   "scripts": {
     "start": "npx servor . index.html 8080 --browse",
-    "build": "mkdir -p dist && cp -rv index.html index.tsx App.tsx types.ts metadata.json components services utils dist/"
+    "build": "esbuild index.tsx --bundle --outfile=dist/index.js --format=esm --minify --sourcemap --loader:.tsx=tsx --loader:.ts=ts && cp index.html dist/ && cp _redirects dist/"
   }
 }
