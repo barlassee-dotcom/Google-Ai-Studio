@@ -1,4 +1,3 @@
-
 {
   "name": "primus-coating-cashflow",
   "version": "4.2.3",
@@ -14,6 +13,6 @@
   },
   "scripts": {
     "start": "npx servor . index.html 8080 --browse",
-    "build": "esbuild index.tsx --bundle --outfile=dist/index.js --format=esm --minify --sourcemap --loader:.tsx=tsx --loader:.ts=ts && cp index.html dist/ && cp _redirects dist/"
+    "build": "mkdir -p dist && esbuild index.tsx --bundle --outfile=dist/index.js --format=esm --minify --sourcemap --loader:.tsx=tsx --loader:.ts=ts && cp index.html dist/ && (cp _redirects dist/ 2>/dev/null || true)"
   }
 }
