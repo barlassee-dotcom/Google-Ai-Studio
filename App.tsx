@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Asset, Check, RecurringRule, Transaction, CustomTab, ProjectionType, Currency } from './types';
 import { calculateFlow, toLocalYMD, formatMoney } from './utils/calculations';
-import { saveData, loadData } from './services/storageService';
+import { saveToCloud, loadFromCloud } from './services/firebaseService';
 
 // Sub-components
 import Sidebar from './components/Sidebar';
@@ -14,15 +13,6 @@ import ManualManager from './components/ManualManager';
 import ExcelTabs from './components/ExcelTabs';
 
 const App: React.FC = () => {
-  // LocalStorage Keys
-  const STORAGE_KEYS = {
-    ASSETS: 'pc_cashflow_assets',
-    CHECKS: 'pc_cashflow_checks',
-    MANUAL: 'pc_cashflow_manual',
-    RULES: 'pc_cashflow_rules',
-    TABS: 'pc_cashflow_tabs'
-  };
-
   const [activeTab, setActiveTab] = useState('flow');
   const [eurRate, setEurRate] = useState(36.50);
   const [usdRate, setUsdRate] = useState(34.20);
@@ -30,6 +20,8 @@ const App: React.FC = () => {
   const [projectionType, setProjectionType] = useState<ProjectionType>('daily');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
+  const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
   
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -38,14 +30,28 @@ const App: React.FC = () => {
   const [recurringRules, setRecurringRules] = useState<RecurringRule[]>([]);
   const [customTabs, setCustomTabs] = useState<CustomTab[]>([]);
 
-  // Verileri ilk açılışta yükle
+  // Verileri Firebase'den çek
   useEffect(() => {
-    setAssets(loadData(STORAGE_KEYS.ASSETS, []));
-    setChecks(loadData(STORAGE_KEYS.CHECKS, []));
-    setManualTransactions(loadData(STORAGE_KEYS.MANUAL, []));
-    setRecurringRules(loadData(STORAGE_KEYS.RULES, []));
-    setCustomTabs(loadData(STORAGE_KEYS.TABS, []));
-
+    const initData = async () => {
+      setSyncStatus('syncing');
+      try {
+        const cloudData = await loadFromCloud();
+        if (cloudData) {
+          if (cloudData.assets) setAssets(cloudData.assets);
+          if (cloudData.checks) setChecks(cloudData.checks);
+          if (cloudData.manualTransactions) setManualTransactions(cloudData.manualTransactions);
+          if (cloudData.recurringRules) setRecurringRules(cloudData.recurringRules);
+          if (cloudData.customTabs) setCustomTabs(cloudData.customTabs);
+        }
+        setSyncStatus('synced');
+      } catch (e) {
+        console.error("Cloud Load Failed:", e);
+        setSyncStatus('error');
+      } finally {
+        setIsInitialLoadDone(true);
+      }
+    };
+    initData();
     fetchRates();
 
     const handleClickOutside = (event: MouseEvent) => {
@@ -57,12 +63,25 @@ const App: React.FC = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Değişiklikleri kaydet
-  useEffect(() => { saveData(STORAGE_KEYS.ASSETS, assets); }, [assets]);
-  useEffect(() => { saveData(STORAGE_KEYS.CHECKS, checks); }, [checks]);
-  useEffect(() => { saveData(STORAGE_KEYS.MANUAL, manualTransactions); }, [manualTransactions]);
-  useEffect(() => { saveData(STORAGE_KEYS.RULES, recurringRules); }, [recurringRules]);
-  useEffect(() => { saveData(STORAGE_KEYS.TABS, customTabs); }, [customTabs]);
+  // Herhangi bir veri değiştiğinde Firebase'e kaydet (Debounced Sync)
+  useEffect(() => {
+    // İlk yükleme bitmeden kayıt yapma (verilerin üzerine yazılmaması için)
+    if (!isInitialLoadDone) return;
+
+    const timer = setTimeout(async () => {
+      setSyncStatus('syncing');
+      const success = await saveToCloud({
+        assets,
+        checks,
+        manualTransactions,
+        recurringRules,
+        customTabs
+      });
+      setSyncStatus(success ? 'synced' : 'error');
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [assets, checks, manualTransactions, recurringRules, customTabs, isInitialLoadDone]);
 
   const fetchRates = async () => {
     try {
@@ -99,39 +118,6 @@ const App: React.FC = () => {
     }).sort((a, b) => a.effectiveDateStr.localeCompare(b.effectiveDateStr));
   }, [checks]);
 
-  const handleExport = () => {
-    const data = { assets, checks, manualTransactions, recurringRules, customTabs };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `primus-cashflow-backup-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-  };
-
-  const handleImport = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json';
-    input.onchange = (e: any) => {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onload = (re: any) => {
-        try {
-          const data = JSON.parse(re.target.result as string);
-          if (data.assets) setAssets(data.assets);
-          if (data.checks) setChecks(data.checks);
-          if (data.manualTransactions) setManualTransactions(data.manualTransactions);
-          if (data.recurringRules) setRecurringRules(data.recurringRules);
-          if (data.customTabs) setCustomTabs(data.customTabs);
-          alert("Yedek başarıyla yüklendi.");
-        } catch (err) { alert("Geçersiz yedek dosyası."); }
-      };
-      reader.readAsText(file);
-    };
-    input.click();
-  };
-
   return (
     <div className="flex min-h-screen bg-slate-50 relative">
       <Sidebar 
@@ -142,8 +128,8 @@ const App: React.FC = () => {
         }} 
         customTabs={customTabs}
         setCustomTabs={setCustomTabs}
-        onExport={handleExport}
-        onImport={handleImport}
+        onExport={() => {}} 
+        onImport={() => {}} 
         isMobileOpen={isMobileMenuOpen}
         setIsMobileOpen={setIsMobileMenuOpen}
       />
@@ -162,8 +148,16 @@ const App: React.FC = () => {
                 <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">
                   Primus Coating <span className="text-blue-600 underline decoration-blue-200 underline-offset-4 font-black">CASHFLOW</span>
                 </h1>
+                {/* Sync Badge */}
+                <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-tighter ${
+                  syncStatus === 'synced' ? 'bg-green-50 text-green-600' : 
+                  syncStatus === 'syncing' ? 'bg-blue-50 text-blue-600 animate-pulse' : 'bg-rose-50 text-rose-600'
+                }`}>
+                  <i className={`fa-solid ${syncStatus === 'synced' ? 'fa-cloud-check' : syncStatus === 'syncing' ? 'fa-cloud-arrow-up' : 'fa-cloud-exclamation'}`}></i>
+                  {syncStatus === 'synced' ? 'Bulut Senkronize' : syncStatus === 'syncing' ? 'Kaydediliyor...' : 'Bağlantı Hatası'}
+                </div>
               </div>
-              <p className="text-slate-500 text-[11px] md:text-sm font-medium">Yerel Finans Sistemi v5.0 (Offline Mode)</p>
+              <p className="text-slate-500 text-[11px] md:text-sm font-medium">Primus Finansal Bulut Senkronizasyon v5.2</p>
             </div>
           </div>
           
