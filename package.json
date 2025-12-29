@@ -1,18 +1,18 @@
 {
   "name": "primus-coating-cashflow",
-  "version": "4.2.3",
+  "version": "5.0.0",
   "private": true,
   "dependencies": {
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "recharts": "^2.15.0",
-    "xlsx": "^0.18.5"
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "recharts": "2.15.0",
+    "xlsx": "0.18.5"
   },
   "devDependencies": {
     "esbuild": "^0.24.0"
   },
   "scripts": {
     "start": "npx servor . index.html 8080 --browse",
-    "build": "mkdir -p dist && esbuild index.tsx --bundle --outfile=dist/index.js --format=esm --minify --sourcemap --loader:.tsx=tsx --loader:.ts=ts && cp index.html dist/ && (cp _redirects dist/ 2>/dev/null || true)"
+    "build": "mkdir -p dist && esbuild index.tsx --bundle --outfile=dist/index.js --format=esm --minify --sourcemap --loader:.tsx=tsx --loader:.ts=ts && cp index.html dist/ && sed -i 's/index.tsx/index.js/g' dist/index.html && (cp _redirects dist/ 2>/dev/null || true)"
   }
 }
