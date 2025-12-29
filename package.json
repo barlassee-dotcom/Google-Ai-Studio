@@ -12,6 +12,6 @@
     "esbuild": "^0.24.0"
   },
   "scripts": {
-    "build": "mkdir -p dist && esbuild index.tsx --bundle --outfile=dist/index.js --format=esm --minify --sourcemap --loader:.tsx=tsx --loader:.ts=ts --external:react --external:react-dom --external:recharts --external:xlsx && cp index.html dist/ && sed -i 's/index.tsx/index.js/g' dist/index.html && (cp _redirects dist/ 2>/dev/null || true)"
+    "build": "mkdir -p dist && esbuild index.tsx --bundle --outfile=dist/index.js --format=esm --minify --sourcemap --loader:.tsx=tsx --loader:.ts=ts --external:react --external:react-dom --external:recharts --external:xlsx && cp index.html dist/ && sed -i 's/index.tsx/index.js/g' dist/index.html && cp _redirects dist/ 2>/dev/null || true"
   }
 }

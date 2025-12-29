@@ -1,4 +1,3 @@
-
 import { Asset, Check, RecurringRule, Transaction, FlowPeriod, ProjectionType, Currency } from '../types';
 
 export const formatMoney = (n: number, currency: Currency = 'TL') => {
@@ -40,7 +39,7 @@ export const calculateBoschDate = (d: Date) => {
   return temp;
 };
 
-const convertCurrency = (amount: number, from: Currency, to: Currency, eurRate: number, usdRate: number): number => {
+export const convertCurrency = (amount: number, from: Currency, to: Currency, eurRate: number, usdRate: number): number => {
   if (from === to) return amount;
   
   // Önce TL'ye çevir

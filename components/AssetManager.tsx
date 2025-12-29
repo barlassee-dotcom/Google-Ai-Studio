@@ -1,7 +1,6 @@
-
 import React, { useState } from 'react';
 import { Asset, Currency } from '../types';
-import { formatMoney } from '../utils/calculations';
+import { formatMoney, convertCurrency } from '../utils/calculations';
 
 interface AssetManagerProps {
   assets: Asset[];
@@ -69,7 +68,7 @@ const AssetManager: React.FC<AssetManagerProps> = ({ assets, setAssets, viewCurr
               <input type="number" className="w-full bg-slate-50 border rounded-xl p-3 outline-none" placeholder="0.00" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} />
             </div>
           </div>
-          <button onClick={handleSave} className="w-full bg-blue-600 text-white font-bold p-4 rounded-xl shadow-lg">Kaydet</button>
+          <button onClick={handleSave} className="w-full bg-blue-600 text-white font-bold p-4 rounded-xl shadow-lg hover:bg-blue-700 transition-colors">Kaydet</button>
         </div>
       </div>
       <div className="lg:col-span-2 space-y-6">
@@ -77,27 +76,43 @@ const AssetManager: React.FC<AssetManagerProps> = ({ assets, setAssets, viewCurr
           <table className="w-full text-left">
             <thead>
               <tr className="bg-slate-50 border-b">
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase">Varlık</th>
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase text-right">Orijinal</th>
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase text-right">Bakiye ({viewCurrency})</th>
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase text-center">İşlem</th>
+                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Varlık</th>
+                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Orijinal Bakiye</th>
+                <th className="p-4 text-xs font-bold text-blue-600 uppercase tracking-wider text-right">Mevcut ({viewCurrency})</th>
+                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">İşlem</th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {assets.map(a => (
-                <tr key={a.id} className="hover:bg-slate-50">
-                  <td className="p-4 text-sm font-bold text-slate-700">{a.name}</td>
-                  <td className="p-4 text-sm text-right">{formatMoney(a.amount, a.currency)}</td>
-                  <td className="p-4 text-sm font-black text-right text-blue-700">
-                    {/* Dönüştürülmüş bakiye burada zaten hesaplanmış periyotlardan değil, anlık gösterilebilir */}
-                    {a.name} (Gösterim Seçin)
-                  </td>
-                  <td className="p-4 text-center">
-                    <button onClick={() => editAsset(a)} className="text-blue-500 mr-2"><i className="fa-solid fa-pencil"></i></button>
-                    <button onClick={() => deleteAsset(a.id)} className="text-rose-500"><i className="fa-solid fa-trash-can"></i></button>
-                  </td>
+              {assets.map(a => {
+                const converted = convertCurrency(a.amount, a.currency, viewCurrency, eurRate, usdRate);
+                return (
+                  <tr key={a.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-slate-700">{a.name}</span>
+                        <span className="text-[10px] text-slate-400 uppercase font-bold tracking-tight">{a.subType}</span>
+                      </div>
+                    </td>
+                    <td className="p-4 text-sm text-right text-slate-500 font-medium">
+                      {formatMoney(a.amount, a.currency)}
+                    </td>
+                    <td className="p-4 text-sm font-black text-right text-blue-700">
+                      {formatMoney(converted, viewCurrency)}
+                    </td>
+                    <td className="p-4 text-center">
+                      <div className="flex justify-center gap-2">
+                        <button onClick={() => editAsset(a)} className="text-slate-400 hover:text-blue-500 transition-colors"><i className="fa-solid fa-pencil"></i></button>
+                        <button onClick={() => deleteAsset(a.id)} className="text-slate-400 hover:text-rose-500 transition-colors"><i className="fa-solid fa-trash-can"></i></button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {assets.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="p-12 text-center text-slate-400 italic">Varlık kaydı bulunmuyor.</td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
