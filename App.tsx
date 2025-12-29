@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Asset, Check, RecurringRule, Transaction, CustomTab, ProjectionType, Currency } from './types';
 import { calculateFlow, toLocalYMD, formatMoney } from './utils/calculations';
-import { syncPath, updatePath } from './services/firebaseService';
+import { saveData, loadData } from './services/storageService';
 
 // Sub-components
 import Sidebar from './components/Sidebar';
@@ -12,16 +12,15 @@ import CheckManager from './components/CheckManager';
 import RecurringManager from './components/RecurringManager';
 import ManualManager from './components/ManualManager';
 import ExcelTabs from './components/ExcelTabs';
-import AIChatAssistant from './components/AIChatAssistant';
-import AIAnalysisTab from './components/AIAnalysisTab';
 
 const App: React.FC = () => {
-  const FB_PATHS = {
-    ASSETS: 'cashflow/assets',
-    CHECKS: 'cashflow/checks',
-    MANUAL: 'cashflow/manual_trans',
-    RULES: 'cashflow/recurring_rules',
-    TABS: 'cashflow/custom_tabs'
+  // LocalStorage Keys
+  const STORAGE_KEYS = {
+    ASSETS: 'pc_cashflow_assets',
+    CHECKS: 'pc_cashflow_checks',
+    MANUAL: 'pc_cashflow_manual',
+    RULES: 'pc_cashflow_rules',
+    TABS: 'pc_cashflow_tabs'
   };
 
   const [activeTab, setActiveTab] = useState('flow');
@@ -39,12 +38,13 @@ const App: React.FC = () => {
   const [recurringRules, setRecurringRules] = useState<RecurringRule[]>([]);
   const [customTabs, setCustomTabs] = useState<CustomTab[]>([]);
 
+  // Verileri ilk açılışta yükle
   useEffect(() => {
-    const unsubAssets = syncPath(FB_PATHS.ASSETS, (val) => setAssets(val || []));
-    const unsubChecks = syncPath(FB_PATHS.CHECKS, (val) => setChecks(val || []));
-    const unsubManual = syncPath(FB_PATHS.MANUAL, (val) => setManualTransactions(val || []));
-    const unsubRules = syncPath(FB_PATHS.RULES, (val) => setRecurringRules(val || []));
-    const unsubTabs = syncPath(FB_PATHS.TABS, (val) => setCustomTabs(val || []));
+    setAssets(loadData(STORAGE_KEYS.ASSETS, []));
+    setChecks(loadData(STORAGE_KEYS.CHECKS, []));
+    setManualTransactions(loadData(STORAGE_KEYS.MANUAL, []));
+    setRecurringRules(loadData(STORAGE_KEYS.RULES, []));
+    setCustomTabs(loadData(STORAGE_KEYS.TABS, []));
 
     fetchRates();
 
@@ -54,42 +54,15 @@ const App: React.FC = () => {
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-
-    return () => {
-      unsubAssets(); unsubChecks(); unsubManual(); unsubRules(); unsubTabs();
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleSetAssets = (val: any) => {
-    const next = typeof val === 'function' ? val(assets) : val;
-    setAssets(next);
-    updatePath(FB_PATHS.ASSETS, next);
-  };
-
-  const handleSetChecks = (val: any) => {
-    const next = typeof val === 'function' ? val(checks) : val;
-    setChecks(next);
-    updatePath(FB_PATHS.CHECKS, next);
-  };
-
-  const handleSetManual = (val: any) => {
-    const next = typeof val === 'function' ? val(manualTransactions) : val;
-    setManualTransactions(next);
-    updatePath(FB_PATHS.MANUAL, next);
-  };
-
-  const handleSetRules = (val: any) => {
-    const next = typeof val === 'function' ? val(recurringRules) : val;
-    setRecurringRules(next);
-    updatePath(FB_PATHS.RULES, next);
-  };
-
-  const handleSetTabs = (val: any) => {
-    const next = typeof val === 'function' ? val(customTabs) : val;
-    setCustomTabs(next);
-    updatePath(FB_PATHS.TABS, next);
-  };
+  // Değişiklikleri kaydet
+  useEffect(() => { saveData(STORAGE_KEYS.ASSETS, assets); }, [assets]);
+  useEffect(() => { saveData(STORAGE_KEYS.CHECKS, checks); }, [checks]);
+  useEffect(() => { saveData(STORAGE_KEYS.MANUAL, manualTransactions); }, [manualTransactions]);
+  useEffect(() => { saveData(STORAGE_KEYS.RULES, recurringRules); }, [recurringRules]);
+  useEffect(() => { saveData(STORAGE_KEYS.TABS, customTabs); }, [customTabs]);
 
   const fetchRates = async () => {
     try {
@@ -113,7 +86,6 @@ const App: React.FC = () => {
     [projectionType, assets, checks, manualTransactions, recurringRules, eurRate, usdRate, viewCurrency]
   );
 
-  // Bildirim Sistemi: 7 gün içinde vadesi gelen çekleri bul
   const upcomingChecks = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -147,12 +119,12 @@ const App: React.FC = () => {
       reader.onload = (re: any) => {
         try {
           const data = JSON.parse(re.target.result as string);
-          if (data.assets) handleSetAssets(data.assets);
-          if (data.checks) handleSetChecks(data.checks);
-          if (data.manualTransactions) handleSetManual(data.manualTransactions);
-          if (data.recurringRules) handleSetRules(data.recurringRules);
-          if (data.customTabs) handleSetTabs(data.customTabs);
-          alert("Veriler aktarıldı.");
+          if (data.assets) setAssets(data.assets);
+          if (data.checks) setChecks(data.checks);
+          if (data.manualTransactions) setManualTransactions(data.manualTransactions);
+          if (data.recurringRules) setRecurringRules(data.recurringRules);
+          if (data.customTabs) setCustomTabs(data.customTabs);
+          alert("Yedek başarıyla yüklendi.");
         } catch (err) { alert("Geçersiz yedek dosyası."); }
       };
       reader.readAsText(file);
@@ -169,7 +141,7 @@ const App: React.FC = () => {
           setIsMobileMenuOpen(false);
         }} 
         customTabs={customTabs}
-        setCustomTabs={handleSetTabs}
+        setCustomTabs={setCustomTabs}
         onExport={handleExport}
         onImport={handleImport}
         isMobileOpen={isMobileMenuOpen}
@@ -191,12 +163,11 @@ const App: React.FC = () => {
                   Primus Coating <span className="text-blue-600 underline decoration-blue-200 underline-offset-4 font-black">CASHFLOW</span>
                 </h1>
               </div>
-              <p className="text-slate-500 text-[11px] md:text-sm font-medium">Kurumsal Finans Sistemi v4.5</p>
+              <p className="text-slate-500 text-[11px] md:text-sm font-medium">Yerel Finans Sistemi v5.0 (Offline Mode)</p>
             </div>
           </div>
           
           <div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-xl shadow-sm border border-slate-100 self-start xl:self-auto">
-            {/* Bildirim Zil Paneli */}
             <div className="relative" ref={notificationRef}>
               <button 
                 onClick={() => setIsNotificationOpen(!isNotificationOpen)}
@@ -233,7 +204,7 @@ const App: React.FC = () => {
                     ) : (
                       <div className="p-8 text-center text-slate-400">
                         <i className="fa-solid fa-check-circle text-2xl mb-2 opacity-20"></i>
-                        <p className="text-xs font-medium italic">7 gün içinde vadesi gelen çek bulunmuyor.</p>
+                        <p className="text-xs font-medium italic">Yaklaşan çek bulunmuyor.</p>
                       </div>
                     )}
                   </div>
@@ -246,12 +217,10 @@ const App: React.FC = () => {
             <div className="flex items-center gap-2 px-3 border-r border-slate-100 pr-4">
               <span className="text-[10px] font-black text-slate-400 uppercase">1 EUR</span>
               <input type="number" value={eurRate} onChange={(e) => setEurRate(Number(e.target.value))} className="w-16 text-sm font-bold bg-transparent outline-none border-b border-transparent focus:border-blue-500" />
-              <span className="text-xs font-bold text-slate-500">TL</span>
             </div>
             <div className="flex items-center gap-2 px-3 border-r border-slate-100 pr-4">
               <span className="text-[10px] font-black text-slate-400 uppercase">1 USD</span>
               <input type="number" value={usdRate} onChange={(e) => setUsdRate(Number(e.target.value))} className="w-16 text-sm font-bold bg-transparent outline-none border-b border-transparent focus:border-blue-500" />
-              <span className="text-xs font-bold text-slate-500">TL</span>
             </div>
             
             <div className="flex bg-slate-50 p-1 rounded-lg">
@@ -272,23 +241,21 @@ const App: React.FC = () => {
           {activeTab === 'flow' && (
             <FlowDashboard 
               periods={periods} projectionType={projectionType} setProjectionType={setProjectionType}
-              viewCurrency={viewCurrency} assets={assets} setAssets={handleSetAssets} eurRate={eurRate}
+              viewCurrency={viewCurrency} assets={assets} setAssets={setAssets} eurRate={eurRate}
             />
           )}
-          {activeTab === 'ai-analysis' && <AIAnalysisTab periods={periods} viewCurrency={viewCurrency} />}
-          {activeTab === 'assets' && <AssetManager assets={assets} setAssets={handleSetAssets} viewCurrency={viewCurrency} eurRate={eurRate} usdRate={usdRate} />}
-          {activeTab === 'checks' && <CheckManager checks={checks} setChecks={handleSetChecks} />}
-          {activeTab === 'recurring' && <RecurringManager rules={recurringRules} setRules={handleSetRules} />}
-          {activeTab === 'manual' && <ManualManager transactions={manualTransactions} setTransactions={handleSetManual} />}
+          {activeTab === 'assets' && <AssetManager assets={assets} setAssets={setAssets} viewCurrency={viewCurrency} eurRate={eurRate} usdRate={usdRate} />}
+          {activeTab === 'checks' && <CheckManager checks={checks} setChecks={setChecks} />}
+          {activeTab === 'recurring' && <RecurringManager rules={recurringRules} setRules={setRecurringRules} />}
+          {activeTab === 'manual' && <ManualManager transactions={manualTransactions} setTransactions={setManualTransactions} />}
           {activeTab.startsWith('cust-') && (
             <ExcelTabs 
-              tabId={activeTab} transactions={manualTransactions} setTransactions={handleSetManual} 
-              customTabs={customTabs} setCustomTabs={handleSetTabs}
+              tabId={activeTab} transactions={manualTransactions} setTransactions={setManualTransactions} 
+              customTabs={customTabs} setCustomTabs={setCustomTabs}
             />
           )}
         </div>
       </main>
-      <AIChatAssistant assets={assets} periods={periods} />
     </div>
   );
 };
