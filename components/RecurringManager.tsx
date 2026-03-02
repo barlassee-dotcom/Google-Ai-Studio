@@ -39,14 +39,14 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({ rules, setRules }) 
     }
     
     const ruleData = {
-      type: form.type as any,
-      startDate: form.startDate,
-      amount: form.amount,
-      desc: form.desc,
+      type: form.type as 'income' | 'expense',
+      startDate: form.startDate || '',
+      amount: form.amount || 0,
+      desc: form.desc || '',
       currency: (form.currency || 'TL') as Currency,
-      freq: form.freq as any,
+      freq: form.freq as 'weekly' | 'monthly',
       weekDays: form.weekDays,
-      monthType: form.monthType as any,
+      monthType: form.monthType as 'fixed' | 'special',
       fixedDay: form.fixedDay,
       specialOrd: form.specialOrd,
       specialDay: form.specialDay
@@ -56,7 +56,8 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({ rules, setRules }) 
       setRules(rules.map(r => r.id === editingId ? { ...r, ...ruleData } : r));
       setEditingId(null);
     } else {
-      setRules([...rules, { id: Date.now().toString(), ...ruleData }]);
+      const newId = Date.now().toString();
+      setRules([...rules, { id: newId, ...ruleData }]);
     }
     resetForm();
   };
@@ -108,7 +109,7 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({ rules, setRules }) 
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-1">
               <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Sıklık</label>
-              <select className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none" value={form.freq} onChange={e => setForm({...form, freq: e.target.value as any})}>
+              <select className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none" value={form.freq} onChange={e => setForm({...form, freq: e.target.value as 'weekly' | 'monthly'})}>
                 <option value="weekly">Haftalık</option>
                 <option value="monthly">Aylık</option>
               </select>

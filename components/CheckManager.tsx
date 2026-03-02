@@ -36,8 +36,9 @@ const CheckManager: React.FC<CheckManagerProps> = ({ checks, setChecks }) => {
       setChecks(checks.map(c => c.id === editingId ? { ...c, ...checkData } : c));
       setEditingId(null);
     } else {
+      const newId = Date.now().toString();
       const newCheck: Check = {
-        id: Date.now().toString(),
+        id: newId,
         ...checkData
       };
       setChecks([...checks, newCheck]);

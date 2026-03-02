@@ -3,7 +3,7 @@
  * LocalStorage tabanlı basit veri saklama servisi
  */
 
-export const saveData = (key: string, data: any) => {
+export const saveData = (key: string, data: unknown) => {
   try {
     localStorage.setItem(key, JSON.stringify(data));
   } catch (error) {
@@ -11,7 +11,7 @@ export const saveData = (key: string, data: any) => {
   }
 };
 
-export const loadData = (key: string, defaultValue: any) => {
+export const loadData = (key: string, defaultValue: unknown) => {
   try {
     const saved = localStorage.getItem(key);
     return saved ? JSON.parse(saved) : defaultValue;

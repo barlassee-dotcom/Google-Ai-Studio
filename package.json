@@ -1,18 +1,37 @@
 {
   "name": "primus-coating-cashflow",
-  "version": "5.1.0",
+  "version": "5.3.0",
   "private": true,
+  "type": "module",
   "dependencies": {
+    "firebase": "11.0.1",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "recharts": "2.15.0",
-    "xlsx": "0.18.5",
-    "firebase": "11.0.1"
+    "xlsx": "0.18.5"
   },
   "devDependencies": {
-    "esbuild": "^0.24.0"
+    "@eslint/js": "^10.0.1",
+    "@tailwindcss/vite": "^4.2.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
+    "@vitejs/plugin-react": "^5.1.4",
+    "esbuild": "^0.24.0",
+    "eslint": "^10.0.2",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.4.0",
+    "tailwindcss": "^4.2.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.1",
+    "vite": "^7.3.1"
   },
   "scripts": {
-    "build": "mkdir -p dist && esbuild index.tsx --bundle --outfile=dist/index.js --format=esm --minify --sourcemap --loader:.tsx=tsx --loader:.ts=ts --external:react --external:react-dom --external:recharts --external:xlsx --external:firebase/app --external:firebase/firestore && cp index.html dist/ && sed -i 's/index.tsx/index.js/g' dist/index.html && cp _redirects dist/ 2>/dev/null || true"
+    "dev": "vite --port 3000 --host 0.0.0.0",
+    "start": "vite --port 3000 --host 0.0.0.0",
+    "build": "vite build",
+    "lint": "eslint ."
   }
 }

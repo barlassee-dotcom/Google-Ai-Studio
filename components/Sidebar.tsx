@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { CustomTab } from '../types';
 
@@ -122,13 +121,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         <div className="p-4 mt-auto">
-          <div className="bg-slate-900 rounded-2xl p-4 text-white flex items-center justify-between">
+          <div className="bg-blue-600 rounded-2xl p-4 text-white flex items-center justify-between shadow-xl">
             <div className="flex flex-col">
-              <p className="text-[10px] font-bold opacity-60 uppercase">Depolama</p>
-              <p className="text-xs font-black">LOCAL BROWSER</p>
+              <p className="text-[10px] font-bold opacity-80 uppercase">Depolama</p>
+              <p className="text-xs font-black">FIRESTONE CLOUD</p>
             </div>
-            <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center shadow-lg">
-              <i className="fa-solid fa-hard-drive text-[12px]"></i>
+            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+              <i className="fa-solid fa-cloud text-[12px]"></i>
             </div>
           </div>
         </div>

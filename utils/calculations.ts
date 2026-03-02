@@ -26,14 +26,18 @@ export const getNextBusinessDay = (date: Date) => {
 };
 
 export const calculateBoschDate = (d: Date) => {
-  let temp = new Date(d);
+  const temp = new Date(d);
   temp.setHours(0, 0, 0, 0);
   const day = temp.getDay();
-  if (day === 4) { } 
+  if (day === 4) {
+    // Perşembe - Aynen kalır
+  } 
   else if (day === 5) { temp.setDate(temp.getDate() - 1); } 
   else if (day === 6) { temp.setDate(temp.getDate() + 2); } 
   else if (day === 0) { temp.setDate(temp.getDate() + 1); } 
-  else if (day === 1) { } 
+  else if (day === 1) {
+    // Pazartesi - Aynen kalır
+  } 
   else if (day === 2) { temp.setDate(temp.getDate() - 1); } 
   else if (day === 3) { temp.setDate(temp.getDate() - 2); } 
   return temp;
@@ -63,15 +67,15 @@ export const generateRecurringTransactions = (rules: RecurringRule[] = [], start
     const ruleStartDate = new Date(rule.startDate);
     ruleStartDate.setHours(0, 0, 0, 0);
     const loopStart = new Date(Math.max(start.getTime(), ruleStartDate.getTime()));
-    let d = new Date(loopStart);
+    const d = new Date(loopStart);
     d.setHours(0, 0, 0, 0);
     const endStr = toLocalYMD(end);
 
     while (toLocalYMD(d) <= endStr) {
       let isMatch = false;
       if (rule.freq === 'weekly' && rule.weekDays) {
-        let jsDay = d.getDay();
-        let normalizedDay = jsDay === 0 ? 7 : jsDay;
+        const jsDay = d.getDay();
+        const normalizedDay = jsDay === 0 ? 7 : jsDay;
         if (rule.weekDays.includes(normalizedDay)) isMatch = true;
       } else if (rule.freq === 'monthly') {
         if (rule.monthType === 'fixed' && rule.fixedDay) {
@@ -86,14 +90,14 @@ export const generateRecurringTransactions = (rules: RecurringRule[] = [], start
           if (ord === 5) {
             const lastDate = new Date(d.getFullYear(), d.getMonth() + 1, 0);
             for (let k = 0; k < 7; k++) {
-              let temp = new Date(lastDate);
+              const temp = new Date(lastDate);
               temp.setDate(temp.getDate() - k);
               if (temp.getDay() === (desiredDay === 7 ? 0 : desiredDay)) { targetDate = temp; break; }
             }
           } else {
             let count = 0;
             for (let k = 1; k <= 31; k++) {
-              let temp = new Date(d.getFullYear(), d.getMonth(), k);
+              const temp = new Date(d.getFullYear(), d.getMonth(), k);
               if (temp.getMonth() !== d.getMonth()) break;
               if (temp.getDay() === (desiredDay === 7 ? 0 : desiredDay)) {
                 count++;
@@ -135,12 +139,12 @@ export const calculateFlow = (
   today.setHours(0, 0, 0, 0);
   const todayStr = toLocalYMD(today);
   const periods: FlowPeriod[] = [];
-  let endDate = new Date(today);
+  const endDate = new Date(today);
   
   if (projectionType === 'daily') {
     endDate.setDate(today.getDate() + 45);
     for (let i = 0; i <= 45; i++) {
-      let d = new Date(today);
+      const d = new Date(today);
       d.setDate(today.getDate() + i);
       periods.push({
         start: new Date(d), end: new Date(d),
@@ -152,7 +156,7 @@ export const calculateFlow = (
     endDate.setDate(today.getDate() + (12 * 7));
     let current = new Date(today);
     for (let i = 0; i < 12; i++) {
-      let weekEnd = new Date(current);
+      const weekEnd = new Date(current);
       const day = current.getDay();
       const diff = 7 - (day === 0 ? 7 : day);
       weekEnd.setDate(current.getDate() + diff);
@@ -171,7 +175,7 @@ export const calculateFlow = (
     let current = new Date(today);
     current.setDate(1);
     for (let i = 0; i < 6; i++) {
-      let monthEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0);
+      const monthEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0);
       monthEnd.setHours(23, 59, 59, 999);
       periods.push({
         start: new Date(current), end: new Date(monthEnd),

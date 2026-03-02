@@ -13,11 +13,10 @@ interface FlowDashboardProps {
   viewCurrency: Currency;
   assets: Asset[];
   setAssets: React.Dispatch<React.SetStateAction<Asset[]>>;
-  eurRate: number;
 }
 
 const FlowDashboard: React.FC<FlowDashboardProps> = ({ 
-  periods, projectionType, setProjectionType, viewCurrency, assets, setAssets, eurRate 
+  periods, projectionType, setProjectionType, viewCurrency, assets, setAssets 
 }) => {
   const [selectedDetails, setSelectedDetails] = useState<FlowPeriod | null>(null);
   const [searchQuery, setSearchQuery] = useState('');

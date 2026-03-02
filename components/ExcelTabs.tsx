@@ -13,7 +13,7 @@ interface ExcelTabsProps {
 }
 
 const ExcelTabs: React.FC<ExcelTabsProps> = ({ tabId, transactions, setTransactions, customTabs, setCustomTabs }) => {
-  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [previewData, setPreviewData] = useState<{ cust: string; invDate: string; dueDate: string; finalDate: string; amt: number }[]>([]);
   const [boschRule, setBoschRule] = useState(false);
   const [vadeGun, setVadeGun] = useState(60);
   const [file, setFile] = useState<File | null>(null);
@@ -43,16 +43,17 @@ const ExcelTabs: React.FC<ExcelTabsProps> = ({ tabId, transactions, setTransacti
       const data = new Uint8Array(e.target?.result as ArrayBuffer);
       const workbook = XLSX.read(data, { type: 'array' });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      const jsonData: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
       const colCust = getColIndex("F");
       const colDate = getColIndex("I");
       const colAmt = getColIndex("Y");
 
-      const preview: any[] = [];
+      const preview: { cust: string; invDate: string; dueDate: string; finalDate: string; amt: number }[] = [];
       jsonData.forEach((row, idx) => {
         if (idx === 0) return;
-        let rawDate = row[colDate];
+        const rowData = row as (string | number)[];
+        const rawDate = rowData[colDate];
         if (!rawDate) return;
         
         let invDate: Date;
@@ -66,17 +67,17 @@ const ExcelTabs: React.FC<ExcelTabsProps> = ({ tabId, transactions, setTransacti
 
         if (isNaN(invDate.getTime())) return;
 
-        let dueDate = new Date(invDate);
+        const dueDate = new Date(invDate);
         dueDate.setDate(dueDate.getDate() + vadeGun);
         
-        let finalDate = boschRule ? calculateBoschDate(dueDate) : dueDate;
+        const finalDate = boschRule ? calculateBoschDate(dueDate) : dueDate;
         
         preview.push({
-          cust: row[colCust] || "Bilinmeyen",
+          cust: String(rowData[colCust] || "Bilinmeyen"),
           invDate: toLocalYMD(invDate),
           dueDate: toLocalYMD(dueDate),
           finalDate: toLocalYMD(finalDate),
-          amt: parseFloat(row[colAmt]) || 0
+          amt: parseFloat(String(rowData[colAmt])) || 0
         });
       });
 
@@ -94,10 +95,11 @@ const ExcelTabs: React.FC<ExcelTabsProps> = ({ tabId, transactions, setTransacti
       grouped[key] = (grouped[key] || 0) + item.amt;
     });
 
-    const newTrans: Transaction[] = Object.entries(grouped).map(([key, amount]) => {
+    const now = Date.now();
+    const newTrans: Transaction[] = Object.entries(grouped).map(([key, amount], idx) => {
       const [date, cust] = key.split('|');
       return {
-        id: `excel-${Date.now()}-${Math.random()}`,
+        id: `excel-${now}-${idx}-${Math.random()}`,
         type: 'income',
         date,
         amount,

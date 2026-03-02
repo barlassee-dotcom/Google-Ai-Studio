@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Asset, Check, RecurringRule, Transaction, CustomTab, ProjectionType, Currency } from './types';
-import { calculateFlow, toLocalYMD, formatMoney } from './utils/calculations';
-import { saveToCloud, loadFromCloud } from './services/firebaseService';
+import { Asset, Check, RecurringRule, Transaction, CustomTab, ProjectionType, Currency } from './types.ts';
+import { calculateFlow, toLocalYMD, formatMoney } from './utils/calculations.ts';
+import { saveToCloud, loadFromCloud } from './services/firebaseService.ts';
 
 // Sub-components
-import Sidebar from './components/Sidebar';
-import FlowDashboard from './components/FlowDashboard';
-import AssetManager from './components/AssetManager';
-import CheckManager from './components/CheckManager';
-import RecurringManager from './components/RecurringManager';
-import ManualManager from './components/ManualManager';
-import ExcelTabs from './components/ExcelTabs';
+import Sidebar from './components/Sidebar.tsx';
+import FlowDashboard from './components/FlowDashboard.tsx';
+import AssetManager from './components/AssetManager.tsx';
+import CheckManager from './components/CheckManager.tsx';
+import RecurringManager from './components/RecurringManager.tsx';
+import ManualManager from './components/ManualManager.tsx';
+import ExcelTabs from './components/ExcelTabs.tsx';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('flow');
@@ -65,7 +65,6 @@ const App: React.FC = () => {
 
   // Herhangi bir veri değiştiğinde Firebase'e kaydet (Debounced Sync)
   useEffect(() => {
-    // İlk yükleme bitmeden kayıt yapma (verilerin üzerine yazılmaması için)
     if (!isInitialLoadDone) return;
 
     const timer = setTimeout(async () => {
@@ -148,7 +147,6 @@ const App: React.FC = () => {
                 <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">
                   Primus Coating <span className="text-blue-600 underline decoration-blue-200 underline-offset-4 font-black">CASHFLOW</span>
                 </h1>
-                {/* Sync Badge */}
                 <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-tighter ${
                   syncStatus === 'synced' ? 'bg-green-50 text-green-600' : 
                   syncStatus === 'syncing' ? 'bg-blue-50 text-blue-600 animate-pulse' : 'bg-rose-50 text-rose-600'
@@ -235,7 +233,7 @@ const App: React.FC = () => {
           {activeTab === 'flow' && (
             <FlowDashboard 
               periods={periods} projectionType={projectionType} setProjectionType={setProjectionType}
-              viewCurrency={viewCurrency} assets={assets} setAssets={setAssets} eurRate={eurRate}
+              viewCurrency={viewCurrency} assets={assets} setAssets={setAssets}
             />
           )}
           {activeTab === 'assets' && <AssetManager assets={assets} setAssets={setAssets} viewCurrency={viewCurrency} eurRate={eurRate} usdRate={usdRate} />}

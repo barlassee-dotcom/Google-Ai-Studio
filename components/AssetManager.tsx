@@ -24,9 +24,10 @@ const AssetManager: React.FC<AssetManagerProps> = ({ assets, setAssets, viewCurr
     if (!form.name || form.amount === '') return;
     const amount = parseFloat(form.amount);
     if (editingId) {
-      setAssets(assets.map(a => a.id === editingId ? { ...a, type: form.type as any, name: form.name, subType: form.subType, currency: form.currency, amount } : a));
+      setAssets(assets.map(a => a.id === editingId ? { ...a, type: form.type as 'Banka' | 'Fon', name: form.name, subType: form.subType, currency: form.currency, amount } : a));
     } else {
-      setAssets([...assets, { id: Date.now().toString(), type: form.type as any, name: form.name, subType: form.subType, currency: form.currency, amount, included: true }]);
+      const newId = Date.now().toString();
+      setAssets([...assets, { id: newId, type: form.type as 'Banka' | 'Fon', name: form.name, subType: form.subType, currency: form.currency, amount, included: true }]);
     }
     resetForm();
   };

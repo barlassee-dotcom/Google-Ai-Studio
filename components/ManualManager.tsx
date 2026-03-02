@@ -77,7 +77,7 @@ const ManualManager: React.FC<ManualManagerProps> = ({ transactions, setTransact
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
               <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Tutar</label>
-              <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500" value={form.amount || ''} onChange={e => setForm({...form, amount: e.target.value as any})} placeholder="0,00" />
+              <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500" value={form.amount || ''} onChange={e => setForm({...form, amount: parseFloat(e.target.value) || 0})} placeholder="0,00" />
             </div>
             <div>
               <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Birim</label>
