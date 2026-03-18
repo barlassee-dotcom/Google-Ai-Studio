@@ -17,7 +17,8 @@ export interface Check {
   valor: number;
   effectiveDateStr: string;
   amount: number;
-  desc: string;
+  checkNo: string;
+  company: string;
 }
 
 export interface RecurringRule {

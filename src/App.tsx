@@ -38,7 +38,15 @@ const App: React.FC = () => {
         const cloudData = await loadFromCloud();
         if (cloudData) {
           if (cloudData.assets) setAssets(cloudData.assets);
-          if (cloudData.checks) setChecks(cloudData.checks);
+          if (cloudData.checks) {
+            const migratedChecks = cloudData.checks.map((c: any) => {
+              if (c.desc && !c.company && !c.checkNo) {
+                return { ...c, company: c.desc, checkNo: '' };
+              }
+              return c;
+            });
+            setChecks(migratedChecks);
+          }
           if (cloudData.manualTransactions) setManualTransactions(cloudData.manualTransactions);
           if (cloudData.recurringRules) setRecurringRules(cloudData.recurringRules);
           if (cloudData.customTabs) setCustomTabs(cloudData.customTabs);
@@ -184,7 +192,9 @@ const App: React.FC = () => {
                       upcomingChecks.map(check => (
                         <div key={check.id} className="p-4 border-b hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => { setActiveTab('checks'); setIsNotificationOpen(false); }}>
                           <div className="flex justify-between items-start mb-1">
-                            <span className="text-xs font-bold text-slate-700 truncate pr-2">{check.desc}</span>
+                            <span className="text-xs font-bold text-slate-700 truncate pr-2">
+                              {[check.checkNo, check.company].filter(Boolean).join(' - ') || 'İsimsiz Çek'}
+                            </span>
                             <span className="text-xs font-black text-blue-600 whitespace-nowrap">{formatMoney(check.amount)}</span>
                           </div>
                           <div className="flex items-center gap-2">
